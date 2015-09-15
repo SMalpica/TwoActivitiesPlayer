@@ -36,6 +36,7 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
     private int tTotal,tActual;     //current and total video time
     private int timeSent;
     private boolean tieneGiro = false;//shows if the device has a gyroscope sensor
+    private boolean isPlaying;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -47,10 +48,12 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
         //horizontal orientation
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
-        /*//get intent information
+        //get intent information
         Intent intent = getIntent();
         modo=intent.getIntExtra("MODE",1);
-        timeSent=intent.getIntExtra("TIME",0);*/
+        timeSent=intent.getIntExtra("TIME",0);
+        isPlaying=intent.getBooleanExtra("STATUS", true);
+        Log.e("INFO_CHANGE","tiempo recibido en touchActivity "+timeSent);
 
         //set the renderer
         renderer = new Renderer(this,timeSent);
@@ -127,7 +130,9 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
                         } catch (InterruptedException ex){}*/
 //                        controller.stop();
 //                        startActivityForResult(intent, 19);
+                        Log.e("INFO_CHANGE","tiempo enviado a GyroActivity "+timeSent);
                         startActivity(intent);
+                        finish();
                         /*try{
                             lock.acquire();
                         } catch (InterruptedException ex){}*/

@@ -10,6 +10,7 @@ import android.widget.Button;
  * Created by Fitur on 15/09/2015.
  */
 public class MainActivity extends Activity{
+    //todo: no siempre vuelve a aparecer la barra en la aplicacion
 
     @Override
     public void onCreate(Bundle savedInstance){

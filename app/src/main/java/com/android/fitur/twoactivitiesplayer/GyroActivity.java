@@ -45,20 +45,21 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
         getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         //horizontal orientation
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        //set the renderer //TODO: pasar el nombre del video y el path(?)
+        //TODO: pasar el nombre del video y el path(?)
         //TODO: coger el timeSent cuando se prepare el player, no al principio(?)
-        mRenderer = new CRenderer(this,timeSent);
-        setRenderer(mRenderer);
-        getSurfaceView().setKeepScreenOn(true);
-        principal=getSurfaceView();
+
 
         //get intent information
         Intent intent = getIntent();
         mode=intent.getIntExtra("MODE",1);
         timeSent=intent.getIntExtra("TIME",0);
         status=intent.getBooleanExtra("STATUS",true);
-        Log.e("INTENT INFO","timepo recibido "+timeSent);
-
+        Log.e("INFO_CHANGE","tiempo recibido en GyroActivity "+timeSent);
+        //set the renderer
+        mRenderer = new CRenderer(this,timeSent);
+        setRenderer(mRenderer);
+        getSurfaceView().setKeepScreenOn(true);
+        principal=getSurfaceView();
         if(mode==1) getSurfaceView().setVRModeEnabled(false);
 
         //inflates the video control view and adds it to current viewGroup
@@ -106,8 +107,14 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
                 GyroActivity.this.mode = (GyroActivity.this.mode + 1) % 3;
                 switch (GyroActivity.this.mode) {
                     case 0:             //TOUCH MODE
+                        getSurfaceView().setVRModeEnabled(false);
                         modeButton.setImageLevel(0);
                         Intent intent = new Intent(GyroActivity.this, TouchActivity.class);
+                        intent.putExtra("TIME", mRenderer.getMediaPlayer().getCurrentPosition());
+                        //startActivity(intent);
+                        intent.putExtra("STATUS", mRenderer.getMediaPlayer().getCurrentPosition());
+                        mRenderer.getMediaPlayer().stop();
+                        /*Intent intent = new Intent(GyroActivity.this, TouchActivity.class);
                         intent.putExtra("TIME", mRenderer.getMediaPlayer().getCurrentPosition());
                         //startActivity(intent);
                         intent.putExtra("STATUS", mRenderer.getMediaPlayer().getCurrentPosition());
@@ -115,14 +122,15 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
                         mRenderer.stopRendering();
                         try{
                             lock.acquire();
-                            Log.e("THREAD SAFE", "lock acquired "+lock.availablePermits());
+//                            Log.e("THREAD SAFE", "lock acquired "+lock.availablePermits());
                         }catch(InterruptedException ex){}
                         muere=true;
-                        mRenderer.getMediaPlayer().stop();
-                        mRenderer.getMediaPlayer().release();
-                        lock.release();
 
-                        Log.e("THREAD SAFE", "lock released " + lock.availablePermits());
+                        mRenderer.getMediaPlayer().release();
+                        lock.release();*/
+
+//                        Log.e("THREAD SAFE", "lock released " + lock.availablePermits());
+                        Log.e("INFO_CHANGE","tiempo enviado a touchActivity "+timeSent);
                         startActivity(intent);
                         finish();
                         break;
@@ -162,7 +170,7 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
                         //acquire semaphore lock//used in onPause method
                         try {
                             lock.acquire();
-                            Log.e("THREAD SAFE", "lock acquired controller  "+lock.availablePermits());
+//                            Log.e("THREAD SAFE", "lock acquired controller  "+lock.availablePermits());
                         } catch (InterruptedException ex) {
                         }
                         //wait until the mediaPlayer(prepared in the renderer) is not null
@@ -211,7 +219,7 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
                         }
                     }catch(IllegalStateException ex2){ lock.release();}
                     lock.release(); //releases the semaphores lock
-                    Log.e("THREAD SAFE", "lock released controller "+lock.availablePermits());
+//                    Log.e("THREAD SAFE", "lock released controller "+lock.availablePermits());
                 }
 
             }
