@@ -7,6 +7,7 @@ import android.os.CountDownTimer;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -32,6 +33,8 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
     private int tTotal,tActual;     //current and total video time
     private int timeSent;
     private CRenderer mRenderer;
+    private boolean status;
+    private boolean muere = false;
 
 
     @Override
@@ -43,6 +46,7 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
         //horizontal orientation
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         //set the renderer //TODO: pasar el nombre del video y el path(?)
+        //TODO: coger el timeSent cuando se prepare el player, no al principio(?)
         mRenderer = new CRenderer(this,timeSent);
         setRenderer(mRenderer);
         getSurfaceView().setKeepScreenOn(true);
@@ -52,6 +56,7 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
         Intent intent = getIntent();
         mode=intent.getIntExtra("MODE",1);
         timeSent=intent.getIntExtra("TIME",0);
+        status=intent.getBooleanExtra("STATUS",true);
         Log.e("INTENT INFO","timepo recibido "+timeSent);
 
         if(mode==1) getSurfaceView().setVRModeEnabled(false);
@@ -78,7 +83,7 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
         ImageButton backButton = (ImageButton) view.findViewById(R.id.backbutton);
         final ImageButton modeButton = (ImageButton) view.findViewById(R.id.modebutton);
         final SeekBar seekBar = (SeekBar) view.findViewById(R.id.seekBar);
-
+        modeButton.setImageLevel(1);
         //pause and play the video when playButton is pressed
         playButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -98,13 +103,28 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
             @Override
             public void onClick(View v) {
                 //the existence of the needed sensors has already been checked in TouchActivity
-                GyroActivity.this.mode= (GyroActivity.this.mode+1)%3;
-                switch (GyroActivity.this.mode){
+                GyroActivity.this.mode = (GyroActivity.this.mode + 1) % 3;
+                switch (GyroActivity.this.mode) {
                     case 0:             //TOUCH MODE
                         modeButton.setImageLevel(0);
-                        Intent intent = new Intent(GyroActivity.this,TouchActivity.class);
-                        intent.putExtra("TIME",mRenderer.getMediaPlayer().getCurrentPosition());
+                        Intent intent = new Intent(GyroActivity.this, TouchActivity.class);
+                        intent.putExtra("TIME", mRenderer.getMediaPlayer().getCurrentPosition());
+                        //startActivity(intent);
+                        intent.putExtra("STATUS", mRenderer.getMediaPlayer().getCurrentPosition());
+                        setResult(19, intent);
+                        mRenderer.stopRendering();
+                        try{
+                            lock.acquire();
+                            Log.e("THREAD SAFE", "lock acquired "+lock.availablePermits());
+                        }catch(InterruptedException ex){}
+                        muere=true;
+                        mRenderer.getMediaPlayer().stop();
+                        mRenderer.getMediaPlayer().release();
+                        lock.release();
+
+                        Log.e("THREAD SAFE", "lock released " + lock.availablePermits());
                         startActivity(intent);
+                        finish();
                         break;
                     case 1:             //GYRO MODE
                         modeButton.setImageLevel(1);
@@ -132,62 +152,88 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
         controller= new Thread(new Runnable() {
             private int posicion;
             boolean primera = true;
+
             @Override
             public void run() {
                 //run while the mediaPlayer exists
 //                while(primera || renderer.getMediaPlayer()!=null){
-                while(primera || mRenderer.getMediaPlayer()!=null){
-                    //acquire semaphore lock//used in onPause method
-                    try{
-                        lock.acquire();
-                    }catch(InterruptedException ex){}
-                    //wait until the mediaPlayer(prepared in the renderer) is not null
-//                    while (renderer.getMediaPlayer()==null){}
-                    while (mRenderer.getMediaPlayer()==null){}
-                    //wait until the mediaPlayer is playing
-//                    while (!renderer.getMediaPlayer().isPlaying()){}
-                    while (!mRenderer.getMediaPlayer().isPlaying()){}
-                    //set the total video time (only one executed once)
-                    if(primera){
-//                        tTotal=renderer.getMediaPlayer().getDuration()/1000;
-                        tTotal=mRenderer.getMediaPlayer().getDuration()/1000;
-                    }
-                    //wait 1 second
-                    try{
-                        Thread.sleep(1000);
-                        //get current mediaPlayer position
-//                        posicion = renderer.getMediaPlayer().getCurrentPosition();
-                        posicion = mRenderer.getMediaPlayer().getCurrentPosition();
-                        tActual=posicion/1000;
-                    }catch(InterruptedException ex){}
-                    //sets the seekbar max to update progress with normal position
-//                    seekBar.setMax(renderer.getMediaPlayer().getDuration());
-                    seekBar.setMax(mRenderer.getMediaPlayer().getDuration());
-                    //sends information to the UI thread
-                    //UI elements can only be modified there
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            seekBar.setProgress(posicion);  //sets seekbar progress
-                            //sets textviews values
-                            String am = String.format("%02d", tActual / 60);
-                            String as = String.format("%02d", tActual % 60);
-                            tiempoActual.setText(am + ":" + as);
-                            if (primera) {
-                                am = String.format("%02d", tTotal / 60);
-                                as = String.format("%02d", tTotal % 60);
-                                tiempoTotal.setText(am + ":" + as);
-                                primera = false;
-                            }
+                while((primera || mRenderer.getMediaPlayer()!=null) && !muere){
+                    try {
+                        //acquire semaphore lock//used in onPause method
+                        try {
+                            lock.acquire();
+                            Log.e("THREAD SAFE", "lock acquired controller  "+lock.availablePermits());
+                        } catch (InterruptedException ex) {
                         }
-                    });
+                        //wait until the mediaPlayer(prepared in the renderer) is not null
+//                    while (renderer.getMediaPlayer()==null){}
+                        while (!muere && mRenderer.getMediaPlayer() == null) {
+                        }
+                        //wait until the mediaPlayer is playing
+//                    while (!renderer.getMediaPlayer().isPlaying()){}
+                        while (!muere && !mRenderer.getMediaPlayer().isPlaying()) {
+                        }
+                        //set the total video time (only one executed once)
+                        if (primera && !muere) {
+//                        tTotal=renderer.getMediaPlayer().getDuration()/1000;
+                            tTotal = mRenderer.getMediaPlayer().getDuration() / 1000;
+                        }
+                        //wait 1 second
+                        try {
+                            Thread.sleep(1000);
+                            //get current mediaPlayer position
+//                        posicion = renderer.getMediaPlayer().getCurrentPosition();
+                            posicion = mRenderer.getMediaPlayer().getCurrentPosition();
+                            tActual = posicion / 1000;
+                            //sets the seekbar max to update progress with normal position
+//                    seekBar.setMax(renderer.getMediaPlayer().getDuration());
+                            seekBar.setMax(mRenderer.getMediaPlayer().getDuration());
+                            //sends information to the UI thread
+                            //UI elements can only be modified there
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    seekBar.setProgress(posicion);  //sets seekbar progress
+                                    //sets textviews values
+                                    String am = String.format("%02d", tActual / 60);
+                                    String as = String.format("%02d", tActual % 60);
+                                    tiempoActual.setText(am + ":" + as);
+                                    if (primera) {
+                                        am = String.format("%02d", tTotal / 60);
+                                        as = String.format("%02d", tTotal % 60);
+                                        tiempoTotal.setText(am + ":" + as);
+                                        primera = false;
+                                    }
+                                }
+                            });
+                        } catch (InterruptedException ex) {
+                            lock.release();
+                        }
+                    }catch(IllegalStateException ex2){ lock.release();}
                     lock.release(); //releases the semaphores lock
+                    Log.e("THREAD SAFE", "lock released controller "+lock.availablePermits());
                 }
 
             }
         });
         controller.start(); //starts the controller thread
 
+        getSurfaceView().setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                Log.e("CONTROL VIEW", "surfaceview ontouch triggered");
+                if(event.getAction()==MotionEvent.ACTION_UP){
+                    timer.cancel();
+                    if (GyroActivity.this.view.getVisibility() == View.INVISIBLE) {
+                        GyroActivity.this.view.setVisibility(View.VISIBLE);
+                        timer.start();
+                    } else {
+                        GyroActivity.this.view.setVisibility(View.INVISIBLE);
+                    }
+                }
+                return false;
+            }
+        });
         control=view;
     }
 
@@ -212,11 +258,14 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
     @Override
     public void onPause() {
         super.onPause();
-        getSurfaceView().onPause();
-        mRenderer.onPause();
-        try{
+        if(!muere){
+
+            getSurfaceView().onPause();
+            mRenderer.onPause();
+        }
+        /*try{
             lock.acquire();
-        }catch(InterruptedException ex){}
+        }catch(InterruptedException ex){}*/
         Log.e("SCREEN","onpause called");
     }
 
@@ -226,14 +275,17 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
     @Override
     public void onResume() {
         super.onResume();
-        getSurfaceView().onResume();
-        mRenderer.onResume();
-        if(view.getVisibility()!=View.VISIBLE){
-            view.setVisibility(View.VISIBLE);
-            timer.cancel(); //restarts the timer
-            timer.start();
+        if(!muere){
+
+            getSurfaceView().onResume();
+            mRenderer.onResume();
+            if(view.getVisibility()!=View.VISIBLE){
+                view.setVisibility(View.VISIBLE);
+                timer.cancel(); //restarts the timer
+                timer.start();
+            }
         }
-        lock.release();
+//        lock.release();
         Log.e("SCREEN", "onresume called");
     }
     /********************************************************************************/
@@ -243,7 +295,7 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
     @Override
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
         //if the user provoked the change
-        if (fromUser) {
+        if (fromUser && !muere) {
             //change mediaPLayer position
 //            renderer.getMediaPlayer().seekTo(progress);
             mRenderer.getMediaPlayer().seekTo(progress);

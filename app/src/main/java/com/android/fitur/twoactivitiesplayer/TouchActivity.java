@@ -47,10 +47,10 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
         //horizontal orientation
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
-        //get intent information
+        /*//get intent information
         Intent intent = getIntent();
         modo=intent.getIntExtra("MODE",1);
-        timeSent=intent.getIntExtra("TIME",0);
+        timeSent=intent.getIntExtra("TIME",0);*/
 
         //set the renderer
         renderer = new Renderer(this,timeSent);
@@ -119,9 +119,20 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
                         modeButton.setImageLevel(1);
                         Intent intent = new Intent(TouchActivity.this,GyroActivity.class);
 //                        intent.putExtra("MODE",modo);
-                        Log.e("INTENT INFO","timepo "+renderer.getMediaPlayer().getCurrentPosition());
-                        intent.putExtra("TIME",renderer.getMediaPlayer().getCurrentPosition());
+                        Log.e("INTENT INFO", "timepo " + renderer.getMediaPlayer().getCurrentPosition());
+                        intent.putExtra("TIME", renderer.getMediaPlayer().getCurrentPosition());
+                        intent.putExtra("STATUS", renderer.getMediaPlayer().isPlaying());
+                        /*try{
+                            lock.acquire();
+                        } catch (InterruptedException ex){}*/
+//                        controller.stop();
+//                        startActivityForResult(intent, 19);
                         startActivity(intent);
+                        /*try{
+                            lock.acquire();
+                        } catch (InterruptedException ex){}*/
+                        /*finish();
+                        lock.release();*/
                         Log.e("GYRO","from touchActivity to gyro mode");
                         //TODO: enviar la informacion necesaria del video (path y titulo)
                         break;
@@ -166,6 +177,7 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
                     if(primera){
 //                        tTotal=renderer.getMediaPlayer().getDuration()/1000;
                         tTotal=renderer.getMediaPlayer().getDuration()/1000;
+                        primera = false;
                     }
                     //wait 1 second
                     try{
@@ -218,6 +230,19 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
     /*                            Activity methods                                */
     /******************************************************************************/
 
+    @Override
+    public void onActivityResult(int requestCode,int resultCode, Intent data){
+        super.onActivityResult(requestCode,resultCode,data);
+        if(requestCode==19 && resultCode == 19){
+            Log.e("THREAD SAFE","hemos vuelto a la actividad principal");
+            boolean isPlaying =  data.getBooleanExtra("STATUS",true);
+            timeSent = data.getIntExtra("TIME",0);
+            renderer.getMediaPlayer().seekTo(timeSent);
+            if(isPlaying) renderer.getMediaPlayer().start();
+//            lock.release();
+        }
+    }
+
     //called when the user clicks on the screen
     @Override
     public void onClick(View v) {
@@ -238,9 +263,9 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
         super.onPause();
         surface.onPause();
         renderer.onPause();
-        try{
+        /*try{
             lock.acquire();
-        }catch(InterruptedException ex){}
+        }catch(InterruptedException ex){}*/
         Log.e("SCREEN","onpause called");
     }
 
@@ -257,7 +282,7 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
             timer.cancel(); //restarts the timer
             timer.start();
         }
-        lock.release();
+//        lock.release();
         Log.e("SCREEN", "onresume called");
     }
 
