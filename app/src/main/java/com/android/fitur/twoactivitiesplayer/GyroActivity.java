@@ -1,5 +1,7 @@
 package com.android.fitur.twoactivitiesplayer;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
@@ -35,6 +37,7 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
     private CRenderer mRenderer;
     private boolean status;
     private boolean muere = false;
+    private AlertDialog dialog;
 
 
     @Override
@@ -46,7 +49,7 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
         //horizontal orientation
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         //TODO: pasar el nombre del video y el path(?)
-        //TODO: coger el timeSent cuando se prepare el player, no al principio(?)
+        //TODO: en modo cardboard no empezar. cuando le den al play sacar dialogo, esperar 5 segundos y poner video desde el principio
 
 
         //get intent information
@@ -141,6 +144,7 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
                     case 2:             //CARDBOARD MODE
                         modeButton.setImageLevel(2);
                         getSurfaceView().setVRModeEnabled(true);
+                        lanzarGiro();
                         break;
                 }
             }
@@ -248,6 +252,33 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
     /******************************************************************************/
     /*                            Activity methods                                */
     /******************************************************************************/
+
+    public void lanzarGiro(){
+        mRenderer.getMediaPlayer().pause();
+        //set listeners to the buttons and seekbar progress control
+        final ImageButton playButton = (ImageButton) view.findViewById(R.id.playbutton);
+        playButton.setImageLevel(1);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Prepare Cardboard")
+        .setMessage("Place your device inside the cardboard. The video will start in 7 seconds")
+        .setNeutralButton("Ok", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                timer.start();
+            }
+        });
+        dialog = builder.create();
+        timer=new CountDownTimer(7000,1000){
+            public void onFinish(){
+                mRenderer.getMediaPlayer().seekTo(0);
+                mRenderer.getMediaPlayer().start();
+                dialog.cancel();}
+            public void onTick(long l){dialog.setMessage("Place your device inside the cardboard. The video will start in "+(int)l/1000+" seconds");}
+        };
+        dialog.show();
+        GyroActivity.this.view.setVisibility(View.INVISIBLE);
+//        timer.start();
+    }
 
     //called when the user clicks on the screen
     @Override
