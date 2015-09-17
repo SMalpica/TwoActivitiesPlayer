@@ -23,6 +23,7 @@ import java.util.concurrent.Semaphore;
 
 public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeListener,View.OnClickListener{
     Renderer renderer;              //openGL renderer
+    TouchRenderer trenderer;
     RajawaliSurfaceView surface;    //openGL surface
     public static View principal;   //surface, for external access
     public static View control;     //view, control video view, for external access
@@ -54,18 +55,21 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
         timeSent=intent.getIntExtra("TIME",0);
         isPlaying=intent.getBooleanExtra("STATUS", true);
         Log.e("INFO_CHANGE","tiempo recibido en touchActivity "+timeSent);
-
-        //set the renderer
-        renderer = new Renderer(this,timeSent);
         surface = new RajawaliSurfaceView(this);
+        principal = surface;
+        //set the renderer
+//        renderer = new Renderer(this,timeSent);
+        trenderer = new TouchRenderer(this,timeSent);
+
         // Add mSurface to your root view
         addContentView(surface, new ActionBar.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT));
-        surface.setSurfaceRenderer(renderer);
+//        surface.setSurfaceRenderer(renderer);
+        surface.setSurfaceRenderer(trenderer);
         surface.setFrameRate(60);
 //        setRenderer(renderer);
         //keep the screen on
         surface.setKeepScreenOn(true);
-        principal = surface;
+
 
 
         //inflates the video control view and adds it to current viewGroup
@@ -95,11 +99,18 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
         playButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(renderer.getMediaPlayer().isPlaying()){
+                /*if(renderer.getMediaPlayer().isPlaying()){
                     renderer.getMediaPlayer().pause();
                     playButton.setImageLevel(1);//change button image
                 }else{
                     renderer.getMediaPlayer().start();
+                    playButton.setImageLevel(0);
+                }*/
+                if(trenderer.getMediaPlayer().isPlaying()){
+                    trenderer.getMediaPlayer().pause();
+                    playButton.setImageLevel(1);//change button image
+                }else{
+                    trenderer.getMediaPlayer().start();
                     playButton.setImageLevel(0);
                 }
             }
@@ -122,9 +133,12 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
                         modeButton.setImageLevel(1);
                         Intent intent = new Intent(TouchActivity.this,GyroActivity.class);
 //                        intent.putExtra("MODE",modo);
-                        Log.e("INTENT INFO", "timepo " + renderer.getMediaPlayer().getCurrentPosition());
+                        /*Log.e("INTENT INFO", "timepo " + renderer.getMediaPlayer().getCurrentPosition());
                         intent.putExtra("TIME", renderer.getMediaPlayer().getCurrentPosition());
-                        intent.putExtra("STATUS", renderer.getMediaPlayer().isPlaying());
+                        intent.putExtra("STATUS", renderer.getMediaPlayer().isPlaying());*/
+                        Log.e("INTENT INFO", "timepo " + trenderer.getMediaPlayer().getCurrentPosition());
+                        intent.putExtra("TIME", trenderer.getMediaPlayer().getCurrentPosition());
+                        intent.putExtra("STATUS", trenderer.getMediaPlayer().isPlaying());
                         /*try{
                             lock.acquire();
                         } catch (InterruptedException ex){}*/
@@ -167,21 +181,21 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
             public void run() {
                 //run while the mediaPlayer exists
 //                while(primera || renderer.getMediaPlayer()!=null){
-                while(primera || renderer.getMediaPlayer()!=null){
+                while(primera || trenderer.getMediaPlayer()!=null){
                     //acquire semaphore lock//used in onPause method
                     try{
                         lock.acquire();
                     }catch(InterruptedException ex){}
                     //wait until the mediaPlayer(prepared in the renderer) is not null
 //                    while (renderer.getMediaPlayer()==null){}
-                    while (renderer.getMediaPlayer()==null){}
+                    while (trenderer.getMediaPlayer()==null){}
                     //wait until the mediaPlayer is playing
 //                    while (!renderer.getMediaPlayer().isPlaying()){}
-                    while (!renderer.getMediaPlayer().isPlaying()){}
+                    while (!trenderer.getMediaPlayer().isPlaying()){}
                     //set the total video time (only one executed once)
                     if(primera){
 //                        tTotal=renderer.getMediaPlayer().getDuration()/1000;
-                        tTotal=renderer.getMediaPlayer().getDuration()/1000;
+                        tTotal=trenderer.getMediaPlayer().getDuration()/1000;
                         primera = false;
                     }
                     //wait 1 second
@@ -189,12 +203,12 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
                         Thread.sleep(1000);
                         //get current mediaPlayer position
 //                        posicion = renderer.getMediaPlayer().getCurrentPosition();
-                        posicion = renderer.getMediaPlayer().getCurrentPosition();
+                        posicion = trenderer.getMediaPlayer().getCurrentPosition();
                         tActual=posicion/1000;
                     }catch(InterruptedException ex){}
                     //sets the seekbar max to update progress with normal position
 //                    seekBar.setMax(renderer.getMediaPlayer().getDuration());
-                    seekBar.setMax(renderer.getMediaPlayer().getDuration());
+                    seekBar.setMax(trenderer.getMediaPlayer().getDuration());
                     //sends information to the UI thread
                     //UI elements can only be modified there
                     runOnUiThread(new Runnable() {
@@ -242,8 +256,10 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
             Log.e("THREAD SAFE","hemos vuelto a la actividad principal");
             boolean isPlaying =  data.getBooleanExtra("STATUS",true);
             timeSent = data.getIntExtra("TIME",0);
-            renderer.getMediaPlayer().seekTo(timeSent);
-            if(isPlaying) renderer.getMediaPlayer().start();
+//            renderer.getMediaPlayer().seekTo(timeSent);
+            trenderer.getMediaPlayer().seekTo(timeSent);
+//            if(isPlaying) renderer.getMediaPlayer().start();
+            if(isPlaying) trenderer.getMediaPlayer().start();
 //            lock.release();
         }
     }
@@ -267,7 +283,8 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
     public void onPause() {
         super.onPause();
         surface.onPause();
-        renderer.onPause();
+//        renderer.onPause();
+        trenderer.onPause();
         /*try{
             lock.acquire();
         }catch(InterruptedException ex){}*/
@@ -281,7 +298,8 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
     public void onResume() {
         super.onResume();
         surface.onResume();
-        renderer.onResume();
+//        renderer.onResume();
+        if(principal!=null) trenderer.onResume();
         if(view.getVisibility()!=View.VISIBLE){
             view.setVisibility(View.VISIBLE);
             timer.cancel(); //restarts the timer
@@ -300,8 +318,8 @@ public class TouchActivity extends Activity implements SeekBar.OnSeekBarChangeLi
         //if the user provoked the change
         if (fromUser) {
             //change mediaPLayer position
-            renderer.getMediaPlayer().seekTo(progress);
-//            mRenderer.getMediaPlayer().seekTo(progress);
+//            renderer.getMediaPlayer().seekTo(progress);
+            trenderer.getMediaPlayer().seekTo(progress);
             seekBar.setProgress(progress);  //change the seekbar progress
             progress=progress/1000;
             //change the textview accordingly to the movement

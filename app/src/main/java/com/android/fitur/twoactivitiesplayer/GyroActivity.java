@@ -18,7 +18,11 @@ import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import java.util.concurrent.Semaphore;
-
+//TODO: add scaleGesture Listener for zooming
+//TODO: pasar el nombre del video y el path(?)
+//TODO: cambiar el comportamiento del modo cardboard. Hacer que salte el diálogo la primera vez que se le da al play?
+//TODO: en vez de cambio de modo secuencial, permitir elegir a qué modo se cambia al pulsar el botón
+//TODO: asegurarse de que se puede bloquear y desbloquear la pantalla sin problemas durante la reproducción
 /**
  * Created by Fitur on 11/09/2015.
  */
@@ -48,10 +52,6 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
         getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         //horizontal orientation
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        //TODO: pasar el nombre del video y el path(?)
-        //TODO: en modo cardboard no empezar. cuando le den al play sacar dialogo, esperar 5 segundos y poner video desde el principio
-
-
         //get intent information
         Intent intent = getIntent();
         mode=intent.getIntExtra("MODE",1);
@@ -258,22 +258,26 @@ public class GyroActivity extends RajawaliVRActivity implements SeekBar.OnSeekBa
         //set listeners to the buttons and seekbar progress control
         final ImageButton playButton = (ImageButton) view.findViewById(R.id.playbutton);
         playButton.setImageLevel(1);
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        final AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Prepare Cardboard")
-        .setMessage("Place your device inside the cardboard. The video will start in 7 seconds")
+        .setMessage("Place your device inside the cardboard. ")
         .setNeutralButton("Ok", new DialogInterface.OnClickListener() {
             @Override
-            public void onClick(DialogInterface dialog, int which) {
+            public void onClick(DialogInterface dialog2, int which) {
                 timer.start();
+                AlertDialog.Builder b = new AlertDialog.Builder(GyroActivity.this);
+                b.setMessage("The video will start in 10 seconds");
+                dialog = b.create();
+                dialog.show();
             }
         });
         dialog = builder.create();
-        timer=new CountDownTimer(7000,1000){
+        timer=new CountDownTimer(10000,1000){
             public void onFinish(){
                 mRenderer.getMediaPlayer().seekTo(0);
                 mRenderer.getMediaPlayer().start();
                 dialog.cancel();}
-            public void onTick(long l){dialog.setMessage("Place your device inside the cardboard. The video will start in "+(int)l/1000+" seconds");}
+            public void onTick(long l){dialog.setMessage("The video will start in "+(int)l/1000+" seconds");}
         };
         dialog.show();
         GyroActivity.this.view.setVisibility(View.INVISIBLE);
